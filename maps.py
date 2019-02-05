@@ -11,31 +11,28 @@ def reading_from_file(path):
                 if '{' and '}' in line:
                     line = line[ : line.index('{')] + line[line.index('}') + 1 :]
 
-                lst.append([line[line.index('#') + 1 : line.index('(') - 1].replace('"', ''),
+                lst.append([line[line.index('"') + 2 : line.index('(') - 1].replace('"', ''),
                                   line[line.index('(') + 1 : line.index(')')],
                                   line[line.index(')') + 1 : ].replace('\t', '').replace('\n', '')])
 
     return lst
 
-# print(reading_from_file('loc.list'))
 
 def location_coordinates(location):
     coordinates = [float(coor) for coor in geocoder.yandex(location).latlng]
     return coordinates
 
-# print(location_coordinates('Lutsk Ukraine'))
-
 
 def map_formation(year, data):
     map = folium.Map(location = [49.817545, 24.023932],
-                     zoom_start = 10)
+                     zoom_start = 3)
 
     featuregroup = folium.FeatureGroup(name = 'Location by year')
 
     for line in data:
         if year in line:
             featuregroup.add_child(folium.Marker(location = location_coordinates(line[2]),
-                                       popup = line[1],
+                                       popup = line[0],
                                        icon = folium.Icon()))
 
     map.add_child(featuregroup)
