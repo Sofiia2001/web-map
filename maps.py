@@ -53,6 +53,5 @@ def map_formation(year, data):
 
 if __name__ == '__main__':
     year = str(input('Please, input a year you want to get the location of movies from: '))
-    data = reading_from_file('locations.list')
+    data = reading_from_file('loc.list')
     map_formation(year, data)
-# print(reading_from_file('loc.list'))
