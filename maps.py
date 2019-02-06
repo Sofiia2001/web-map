@@ -4,16 +4,25 @@ import geocoder
 
 def reading_from_file(path):
     lst = []
+    additional = ''
 
-    with open(path, 'r') as file:
+    with open(path, encoding = 'utf-8', errors = 'ignore') as file:
         for line in file.readlines():
             if line.startswith('"'):
-                if '{' and '}' in line:
-                    line = line[ : line.index('{')] + line[line.index('}') + 1 :]
+                try:
+                    if '{' and '}' in line:
+                        additional = ' ' + line[line.index('{') : line.index('}') + 1]
+                        line = line[:line.index('{')] + line[line.index('}') + 1 :]
+                except:
+                    pass
 
-                lst.append([line[line.index('"') + 2 : line.index('(') - 1].replace('"', ''),
+                lst.append([line[line.index('"') + 2 : line.index('(') - 1].replace('"', '') + additional,
                                   line[line.index('(') + 1 : line.index(')')],
                                   line[line.index(')') + 1 : ].replace('\t', '').replace('\n', '')])
+
+    for info in lst:
+        if '(' and ')' in info[2]:
+            info[2] = info[2][:info[2].index('(')]
 
     return lst
 
@@ -31,9 +40,12 @@ def map_formation(year, data):
 
     for line in data:
         if year in line:
-            featuregroup.add_child(folium.Marker(location = location_coordinates(line[2]),
-                                       popup = line[0],
-                                       icon = folium.Icon()))
+            try:
+                featuregroup.add_child(folium.Marker(location = location_coordinates(line[2]),
+                                           popup = line[0],
+                                           icon = folium.Icon()))
+            except:
+                pass
 
     map.add_child(featuregroup)
     map.save('FilmMap.html')
@@ -41,5 +53,6 @@ def map_formation(year, data):
 
 if __name__ == '__main__':
     year = str(input('Please, input a year you want to get the location of movies from: '))
-    data = reading_from_file('loc.list')
+    data = reading_from_file('locations.list')
     map_formation(year, data)
+# print(reading_from_file('loc.list'))
