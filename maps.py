@@ -5,11 +5,21 @@ from tqdm import tqdm
 
 
 def reading_from_file(path, year):
-    lst = []
+    '''
+    (str, str) -> dict
+
+    Function returns a dictionary with locations and movies of a needed year
+
+    e.g. {'LOCATIONS': ['Nashville, Tennessee, USA', 'Spiderhouse Cafe, Austin, Texas, USA'],
+    'MOVIES': ['#2WheelzNHeelz', '#ATown']}
+    '''
+    dictionary = {}
     additional = ''
 
     with open(path, encoding = 'utf-8', errors = 'ignore') as file:
         for line in file.readlines():
+            location = ''
+            movie = ''
             if line.startswith('"') and year in line:
                 try:
                     if '{' and '}' in line:
@@ -17,101 +27,167 @@ def reading_from_file(path, year):
                         line = line[:line.index('{')] + line[line.index('}') + 1 :]
                 except:
                     pass
+                location = line[line.index(')') + 1 : ].replace('\t', '').replace('\n', '')
+                if '(' and ')' in location:
+                    location = location[:location.index('(')]
 
-                lst.append([line[line.index('"') + 2 : line.index('(') - 1].replace('"', '') + additional,
-                                  line[line.index('(') + 1 : line.index(')')],
-                                  line[line.index(')') + 1 : ].replace('\t', '').replace('\n', '')])
+                movie = line[line.index('"') + 2 : line.index('(') - 1].replace('"', '') + additional
 
-    for info in lst:
-        if '(' and ')' in info[2]:
-            info[2] = info[2][:info[2].index('(')]
+                dictionary['LOCATIONS'] = dictionary.get('LOCATIONS', [])
+                dictionary['LOCATIONS'].append(location)
+                dictionary['MOVIES'] = dictionary.get('MOVIES', [])
+                dictionary['MOVIES'].append(movie)
 
-    return lst
+    return dictionary
 
 
 def location_coordinates(location):
+    '''
+    str -> list
+
+    Function converts location into its coordinates
+    '''
     geolocator = Nominatim(timeout = 100)
     geocode = RateLimiter(geolocator.geocode, min_delay_seconds = 0.5)
     loc = geolocator.geocode(location)
-    coordinates = [loc.latitude, loc.longitude]
-    return coordinates
+    if loc:
+        coordinates = [loc.latitude, loc.longitude]
+        return coordinates
 
 
 def place_check(place, data):
-    for i in range(len(data)):
-        if place in data[i][2].lower():
+    '''
+    (list, dictionary) -> bool
+
+    Function checks if place input by user is in collected data
+    '''
+    for loc in data['LOCATIONS']:
+        if place in loc.lower():
             return True
-        if i == len(data):
-            break
 
 
 def counting(places, data):
+    '''
+    (list, dict) -> list(list)
+
+    Function counts how many movies were filmed in each country input by user
+    '''
     counter_lst = [[place, 0] for place in places if place_check(place, data)]
-    for line in data:
+    for loc in data['LOCATIONS']:
         for el in counter_lst:
-            if el[0] in line[2].lower():
+            if el[0] in loc.lower():
                 el[1] += 1
     return counter_lst
 
 
+def button_color(num):
+    '''
+    int -> str
 
-def filling_colour(counted, colours_list):
-    counted.sort(key = lambda num: num[1])
-    for lst in counted:
-        lst.append(colours_list[counted.index(lst)])
-        lst.append(colours_list[len(colours_list) - counted.index(lst) - 1])
-    return counted
+    Function checks the amount of movies in each country to color the buttons in special color
+    If amount is less than 5, the color is red
+    If amount is from 5 to 10 - pink
+    If more - green
+    '''
+    if 0 < num < 5:
+        col = 'red'
+    elif 5 <= num <= 10:
+        col = 'pink'
+    elif num > 10:
+        col = 'green'
+    return col
 
 
-def map_formation(year, data, colours_list):
+def map_formation(year, data, counted):
+    '''
+    (str, dict, list(list)) -> None
+
+    Function creates a map with three layers depending on the amount of movies filmed in countries
+    '''
     map = folium.Map(location = [49.817545, 24.023932],
                      zoom_start = 3)
 
-    fg_loc = folium.FeatureGroup(name = 'Location by year')
-    # fg_color = folium.FeatureGroup(name = 'Colored by amount of movies in a country')
+    MAX_ITERATIONS = 100
+    fg_loc = folium.FeatureGroup(name = "{}'s movies filming location".format(year))
+    fg_color = folium.FeatureGroup(name = 'Colored buttons by amount of movies in a country')
+    fg_circle = folium.FeatureGroup(name = 'Country with the biggest amount of movies')
     tooltip = 'Click me!'
 
-    for line in tqdm(data):
-        for place in colours_list:
-            if year in line and place_check(place[0], data):
-                try:
-                    fg_loc.add_child(folium.Marker(location = location_coordinates(line[2]),
-                                            popup = year + ' year\n' + line[0],
-                                            icon = folium.Icon(color = place[3]),
-                                                   tooltip = tooltip).add_to(map))
-                except:
-                    pass
+    locations = data['LOCATIONS']
+    movies = data['MOVIES']
+    amount_lst = [place[1] for place in counted]
 
-                # fg_color.add_child(folium.Choropleth(geo_data = 'loc.list',
-                                                    # fill_color = place[2]))
+    try:
+        for i in tqdm(range(len(locations))):
+            for place in counted:
+                if location_coordinates(locations[i]):
+
+                    fg_loc.add_child(folium.Marker(location = location_coordinates(locations[i]),
+                                                  popup = movies[i],
+                                                  icon = folium.Icon(),
+                                                  tooltip = tooltip))
+
+                    if place[1] == max(amount_lst):
+                        fg_circle.add_child(folium.CircleMarker(location = location_coordinates(place[0]),
+                                                                radius = 50,
+                                                                popup = place[0] + ' is a country with the biggest'
+                                                                                   ' amount of movies',
+                                                                color = '#3186cc',
+                                                                fill = True,
+                                                                fill_color = '#91a6b7'))
+
+
+                    if place[0] in locations[i].lower():
+                        color = button_color(place[1])
+                        fg_color.add_child(folium.Marker(location = location_coordinates(locations[i]),
+                                                         popup = movies[i],
+                                                         icon = folium.Icon(color = color),
+                                                         tooltip = tooltip))
+                    else:
+                        continue
+
+            if i == MAX_ITERATIONS:
+                break
+    except:
+        pass
 
 
     map.add_child(fg_loc)
-    # map.add_child(fg_color)
-    # map.add_child(folium.LayerControl())
+    map.add_child(fg_color)
+    map.add_child(fg_circle)
+
+    map.add_child(folium.LayerControl())
+
     map.save('FilmMap.html')
+
 
 
 if __name__ == '__main__':
     places = []
-    year = str(input('Please, input a year you want to get the location of movies from: '))
-    num = int(input('Enter the number of places you want to compare (at least two): '))
 
-    while num > 0:
-        place = str(input('Please, now enter those countries with enters: '))
-        places.append(place.lower())
-        num -= 1
+    while True:
+        year = str(input('Please, input a year you want to get the location of movies from: '))
+        num = int(input('Enter the number of countries you want to compare (at least two): '))
 
-    colours_list = ['red', 'blue', 'green', 'purple', 'orange', 'darkred',
-         'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue',
-         'darkpurple', 'white', 'pink', 'lightblue', 'lightgreen']
-         # 'gray', 'black', 'lightgray']
-    data = reading_from_file('loc.list', year)
-    counted = counting(places, data)
-    colours_list = filling_colour(counted, colours_list)
-    map_formation(year, data, colours_list)
+        number = num
 
-#зробити винятки вводу інфи користувачем
-# зафарбована карта за к-кстю фільмів на території(окрема функція з порівняннями) (зробити БЕЗ списку кольорів)
-# другий шар
-# придумати третій
+        while number > 0:
+            place = input('Please, now enter those countries with enters: ')
+            if type(place) != str:
+                print('You entered wrong data, try again!')
+                continue
+            else:
+                places.append(place.lower())
+                number -= 1
+
+        data = reading_from_file('locations.list', year)
+        counted = counting(places, data)
+
+        if 0 < int(year) < 2020 and num > 1:
+            map_formation(year, data, counted)
+            break
+        else:
+            print('You entered wrong data, try again!')
+            continue
+
+
