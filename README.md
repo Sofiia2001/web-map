@@ -16,6 +16,7 @@ Notably, it can do three things:
 
 
 TAGS:
+
     <!DOCTYPE> - declares a document type and provides the main information for a browser.
 
     <meta> - meta-data of a webpage.
@@ -34,6 +35,7 @@ TAGS:
 
 
 CONCLUSION:
+
     To sum up, this web map can visualize the almost 800k database into one picture, selecting the needed information
     with user help.
 
