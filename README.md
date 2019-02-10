@@ -33,6 +33,12 @@ TAGS:
 
     <div></div> - a container for chapters of HTML-document, groups the block elements.
 
+    <a></a> - hyperlink.
+
+    <i></i>	- highlights the text in cursive.
+
+    <svg></svg> - container for svg-graphics.
+
 
 CONCLUSION:
 
